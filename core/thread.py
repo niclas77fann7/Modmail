@@ -1099,6 +1099,9 @@ class Thread:
 
         self.bot.config["subscriptions"].pop(str(self.id), None)
         self.bot.config["notification_squad"].pop(str(self.id), None)
+        self.bot.config["ticket_claims"].pop(str(self.id), None)
+        self.bot.config["ticket_statuses"].pop(str(self.id), None)
+        self.bot.loop.create_task(self.bot.config.update())
 
         # Logging
         if self.channel:
