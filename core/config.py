@@ -184,6 +184,8 @@ class ConfigManager:
         "snippets": {},
         "notification_squad": {},
         "subscriptions": {},
+        "ticket_claims": {},
+        "ticket_statuses": {},
         "closures": {},
         # Thread creation menu
         "thread_creation_menu_enabled": False,
