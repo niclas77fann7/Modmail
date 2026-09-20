@@ -955,71 +955,423 @@ class Utility(commands.Cog):
 
     @config.command(name="help", aliases=["info"])
     @checks.has_permissions(PermissionLevel.OWNER)
-    async def config_help(self, ctx, key: str.lower = None):
+    async def config_help(self, ctx, *, key: str.lower = None):
         """
-        Show information on a specified configuration.
-        """
-        if key is not None and not (
-            key in self.bot.config.public_keys or key in self.bot.config.protected_keys
-        ):
-            closest = get_close_matches(
-                key, {**self.bot.config.public_keys, **self.bot.config.protected_keys}
-            )
-            embed = discord.Embed(
-                title="Error",
-                color=self.bot.error_color,
-                description=f"`{key}` is an invalid key.",
-            )
-            if closest:
-                embed.add_field(
-                    name="Perhaps you meant:",
-                    value="\n".join(f"`{x}`" for x in closest),
-                )
-            return await ctx.send(embed=embed)
+        Browse configuration help by category, search for a setting,
+        or view detailed help for one configuration key.
 
+        Examples:
+        - `{prefix}config help`
+        - `{prefix}config help threads`
+        - `{prefix}config help search close`
+        - `{prefix}config help thread_auto_close`
+        - `{prefix}config help all`
+        """
         config_help = self.bot.config.config_help
 
-        if key is not None and key not in config_help:
-            embed = discord.Embed(
-                title="Error",
-                color=self.bot.error_color,
-                description=f"No help details found for `{key}`.",
-            )
-            return await ctx.send(embed=embed)
+        categories = {
+            "setup": (
+                "main_category_id",
+                "fallback_category_id",
+                "prefix",
+                "mention",
+                "account_age",
+                "guild_age",
+                "thread_cooldown",
+                "log_channel_id",
+            ),
+            "appearance": (
+                "main_color",
+                "error_color",
+                "recipient_color",
+                "mod_color",
+                "mod_tag",
+                "sent_emoji",
+                "blocked_emoji",
+                "close_emoji",
+                "anon_username",
+                "anon_avatar_url",
+                "anon_tag",
+                "show_timestamp",
+            ),
+            "threads": (
+                "user_typing",
+                "mod_typing",
+                "use_user_id_channel_name",
+                "use_timestamp_channel_name",
+                "use_nickname_channel_name",
+                "use_random_channel_name",
+                "recipient_thread_close",
+                "thread_show_roles",
+                "thread_show_account_age",
+                "thread_show_join_age",
+                "thread_auto_close",
+                "thread_auto_close_silently",
+                "require_close_reason",
+                "close_on_leave",
+                "close_on_leave_reason",
+                "thread_min_characters",
+            ),
+            "messages": (
+                "thread_creation_title",
+                "thread_creation_response",
+                "thread_creation_footer",
+                "thread_creation_contact_title",
+                "thread_creation_contact_response",
+                "thread_creation_self_contact_response",
+                "thread_close_title",
+                "thread_close_response",
+                "thread_self_close_response",
+                "thread_close_footer",
+                "thread_move_title",
+                "thread_move_response",
+                "cooldown_thread_title",
+                "cooldown_thread_response",
+                "disabled_new_thread_title",
+                "disabled_new_thread_response",
+                "disabled_current_thread_title",
+                "disabled_current_thread_response",
+            ),
+            "replies": (
+                "reply_without_command",
+                "anon_reply_without_command",
+                "plain_reply_without_command",
+                "anonymous_snippets",
+                "plain_snippets",
+                "thread_contact_silently",
+                "thread_creation_send_dm_embed",
+                "react_to_contact_message",
+                "react_to_contact_emoji",
+            ),
+            "notifications": (
+                "mention",
+                "mention_channel_id",
+                "update_channel_id",
+                "update_notifications",
+                "alert_on_mention",
+                "silent_alert_on_mention",
+                "thread_move_notify",
+                "thread_move_notify_mods",
+                "show_log_url_button",
+                "log_expiration",
+            ),
+            "groups": (
+                "private_added_to_group_title",
+                "private_added_to_group_response",
+                "private_added_to_group_description_anon",
+                "public_added_to_group_title",
+                "public_added_to_group_response",
+                "public_added_to_group_description_anon",
+                "private_removed_from_group_title",
+                "private_removed_from_group_response",
+                "private_removed_from_group_description_anon",
+                "public_removed_from_group_title",
+                "public_removed_from_group_response",
+                "public_removed_from_group_description_anon",
+            ),
+            "snooze": (
+                "snooze_default_duration",
+                "snooze_title",
+                "snooze_text",
+                "unsnooze_text",
+                "unsnooze_notify_channel",
+                "snooze_behavior",
+                "snoozed_category_id",
+                "snooze_store_attachments",
+                "snooze_attachment_max_bytes",
+                "unsnooze_history_limit",
+            ),
+            "menu": (
+                "confirm_thread_creation",
+                "confirm_thread_creation_title",
+                "confirm_thread_response",
+                "confirm_thread_creation_accept",
+                "confirm_thread_creation_deny",
+                "thread_creation_menu_timeout",
+                "thread_creation_menu_close_on_timeout",
+                "thread_creation_menu_anonymous_menu",
+                "thread_creation_menu_embed_text",
+                "thread_creation_menu_dropdown_placeholder",
+                "thread_creation_menu_selection_log",
+                "thread_creation_menu_precreate_channel",
+                "thread_creation_menu_embed_title",
+                "thread_creation_menu_embed_footer",
+                "thread_creation_menu_embed_thumbnail_url",
+                "thread_creation_menu_embed_image_url",
+                "thread_creation_menu_embed_large_image",
+                "thread_creation_menu_embed_footer_icon_url",
+                "thread_creation_menu_embed_color",
+            ),
+            "advanced": (
+                "transfer_reactions",
+                "use_regex_autotrigger",
+                "use_hoisted_top_role",
+                "twitch_url",
+            ),
+        }
+
+        category_aliases = {
+            "basic": "setup",
+            "general": "setup",
+            "getting-started": "setup",
+            "colours": "appearance",
+            "colors": "appearance",
+            "branding": "appearance",
+            "thread": "threads",
+            "responses": "messages",
+            "message": "messages",
+            "reply": "replies",
+            "alerts": "notifications",
+            "notification": "notifications",
+            "group": "groups",
+            "snoozes": "snooze",
+            "menus": "menu",
+            "thread-menu": "menu",
+        }
 
         def fmt(val):
-            return UnseenFormatter().format(val, prefix=self.bot.prefix, bot=self.bot)
+            return UnseenFormatter().format(str(val), prefix=self.bot.prefix, bot=self.bot)
 
-        index = 0
-        embeds = []
-        for i, (current_key, info) in enumerate(config_help.items()):
-            if current_key == key:
-                index = i
-            embed = discord.Embed(title=f"{current_key}", color=self.bot.main_color)
-            embed.add_field(name="Default:", value=fmt(info["default"]), inline=False)
-            embed.add_field(name="Information:", value=fmt(info["description"]), inline=False)
-            if info["examples"]:
-                example_text = ""
-                for example in info["examples"]:
-                    example_text += f"- {fmt(example)}\n"
-                embed.add_field(name="Example(s):", value=example_text, inline=False)
+        def short_description(config_key):
+            info = config_help.get(config_key)
+            if not info:
+                return "No description is available yet."
+            description = fmt(info.get("description", "No description is available yet."))
+            description = " ".join(description.replace("\n", " ").split())
+            if len(description) > 155:
+                description = description[:152].rstrip() + "..."
+            return description
 
-            note_text = ""
-            for note in info.get("notes", []):
-                note_text += f"- {fmt(note)}\n"
-            if note_text:
-                embed.add_field(name="Note(s):", value=note_text, inline=False)
+        def make_key_list_embeds(title, keys, subtitle=None):
+            valid_keys = [
+                name
+                for name in keys
+                if name in self.bot.config.public_keys or name in self.bot.config.protected_keys
+            ]
+            lines = [f"**`{name}`** — {short_description(name)}" for name in valid_keys]
+
+            if not lines:
+                return [
+                    discord.Embed(
+                        title=title,
+                        description="No configuration settings were found.",
+                        color=self.bot.error_color,
+                    )
+                ]
+
+            pages = []
+            current = []
+            current_length = 0
+            for line in lines:
+                if current and (len(current) >= 10 or current_length + len(line) > 3400):
+                    pages.append(current)
+                    current = []
+                    current_length = 0
+                current.append(line)
+                current_length += len(line) + 1
+            if current:
+                pages.append(current)
+
+            embeds = []
+            for page_number, page in enumerate(pages, start=1):
+                description = ""
+                if subtitle:
+                    description += subtitle + "\n\n"
+                description += "\n".join(page)
+                embed = discord.Embed(title=title, description=description, color=self.bot.main_color)
+                if len(pages) > 1:
+                    embed.set_footer(text=f"Page {page_number}/{len(pages)}")
+                embeds.append(embed)
+            return embeds
+
+        async def send_embeds(embeds):
+            if len(embeds) == 1:
+                return await ctx.send(embed=embeds[0])
+            paginator = EmbedPaginatorSession(ctx, *embeds)
+            await paginator.run()
+
+        def build_detail_embed(current_key):
+            info = config_help.get(current_key)
+            if info is None:
+                return None
+
+            embed = discord.Embed(
+                title=current_key,
+                description=fmt(info.get("description", "No description is available yet.")),
+                color=self.bot.main_color,
+            )
+
+            if current_key in self.bot.config.public_keys:
+                current_value = self.bot.config.get(current_key, convert=False)
+                if current_value is None or current_value == "":
+                    current_value = "Not set"
+                current_value = str(current_value)
+                if len(current_value) > 900:
+                    current_value = current_value[:897] + "..."
+                embed.add_field(name="Current value", value=f"`{current_value}`", inline=False)
+
+            embed.add_field(
+                name="Default",
+                value=fmt(info.get("default", "Not documented")),
+                inline=False,
+            )
+
+            examples = info.get("examples", [])
+            if examples:
+                embed.add_field(
+                    name="How to set it",
+                    value="\n".join(f"• {fmt(example)}" for example in examples),
+                    inline=False,
+                )
+
+            notes = info.get("notes", [])
+            if notes:
+                embed.add_field(
+                    name="Useful notes",
+                    value="\n".join(f"• {fmt(note)}" for note in notes),
+                    inline=False,
+                )
 
             if info.get("image") is not None:
                 embed.set_image(url=fmt(info["image"]))
-
             if info.get("thumbnail") is not None:
                 embed.set_thumbnail(url=fmt(info["thumbnail"]))
-            embeds += [embed]
 
-        paginator = EmbedPaginatorSession(ctx, *embeds)
-        paginator.current = index
-        await paginator.run()
+            embed.set_footer(
+                text=(
+                    f"Change: {self.bot.prefix}config set {current_key} <value>  •  "
+                    f"Reset: {self.bot.prefix}config remove {current_key}"
+                )
+            )
+            return embed
+
+        # A simple landing page instead of paging through every config setting.
+        if key is None:
+            embed = discord.Embed(
+                title="Configuration Help",
+                description=(
+                    "Choose a category below, search for a setting, or open one setting directly.\n\n"
+                    f"**Category:** `{self.bot.prefix}config help threads`\n"
+                    f"**Search:** `{self.bot.prefix}config help search close`\n"
+                    f"**Setting:** `{self.bot.prefix}config help thread_auto_close`\n"
+                    f"**Every setting:** `{self.bot.prefix}config help all`"
+                ),
+                color=self.bot.main_color,
+            )
+
+            category_labels = {
+                "setup": "Core setup, prefix, categories and limits",
+                "appearance": "Colours, tags, usernames and emojis",
+                "threads": "Thread behaviour, naming and auto-close",
+                "messages": "User-facing titles and responses",
+                "replies": "Reply modes and staff response behaviour",
+                "notifications": "Mentions, alerts, logs and updates",
+                "groups": "Group-thread messages",
+                "snooze": "Snoozing and restoring tickets",
+                "menu": "Thread creation and confirmation menus",
+                "advanced": "Less commonly changed behaviour",
+            }
+            for category, description in category_labels.items():
+                embed.add_field(
+                    name=category.title(),
+                    value=f"{description}\n`{self.bot.prefix}config help {category}`",
+                    inline=True,
+                )
+
+            embed.set_footer(text="Tip: you do not need to know the exact setting name — use search.")
+            return await ctx.send(embed=embed)
+
+        requested = key.strip().lower()
+        requested = category_aliases.get(requested, requested)
+
+        if requested == "all":
+            public_keys = sorted(self.bot.config.public_keys)
+            return await send_embeds(
+                make_key_list_embeds(
+                    "All Configuration Settings",
+                    public_keys,
+                    f"Use `{self.bot.prefix}config help <setting>` for full details.",
+                )
+            )
+
+        if requested in categories:
+            return await send_embeds(
+                make_key_list_embeds(
+                    f"{requested.title()} Settings",
+                    categories[requested],
+                    f"Use `{self.bot.prefix}config help <setting>` to open one setting.",
+                )
+            )
+
+        if requested.startswith("search "):
+            term = requested[7:].strip()
+            if not term:
+                embed = discord.Embed(
+                    title="Config Search",
+                    description=f"Try `{self.bot.prefix}config help search close`.",
+                    color=self.bot.error_color,
+                )
+                return await ctx.send(embed=embed)
+
+            matches = []
+            for config_key, info in config_help.items():
+                haystack = " ".join(
+                    (
+                        config_key,
+                        str(info.get("description", "")),
+                        " ".join(str(x) for x in info.get("notes", [])),
+                    )
+                ).lower()
+                if term in haystack:
+                    matches.append(config_key)
+
+            if not matches:
+                embed = discord.Embed(
+                    title="No Results",
+                    description=f"No configuration settings matched `{term}`.",
+                    color=self.bot.error_color,
+                )
+                return await ctx.send(embed=embed)
+
+            return await send_embeds(
+                make_key_list_embeds(
+                    f"Search Results: {term}",
+                    sorted(matches),
+                    f"Found {len(matches)} matching setting(s).",
+                )
+            )
+
+        valid_keys = {**self.bot.config.public_keys, **self.bot.config.protected_keys}
+        if requested not in valid_keys:
+            closest = get_close_matches(requested, valid_keys, n=5)
+            embed = discord.Embed(
+                title="Setting Not Found",
+                color=self.bot.error_color,
+                description=(
+                    f"`{requested}` is not a valid setting.\n"
+                    f"Try `{self.bot.prefix}config help search {requested}` to search descriptions."
+                ),
+            )
+            if closest:
+                embed.add_field(
+                    name="Maybe you meant",
+                    value="\n".join(f"`{x}`" for x in closest),
+                    inline=False,
+                )
+            return await ctx.send(embed=embed)
+
+        detail = build_detail_embed(requested)
+        if detail is None:
+            embed = discord.Embed(
+                title="No Help Page",
+                color=self.bot.error_color,
+                description=(
+                    f"`{requested}` is a valid setting, but it does not have a detailed help page yet."
+                ),
+            )
+            return await ctx.send(embed=embed)
+
+        return await ctx.send(embed=detail)
 
     @commands.group(aliases=["aliases"], invoke_without_command=True)
     @checks.has_permissions(PermissionLevel.MODERATOR)
