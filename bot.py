@@ -2216,11 +2216,6 @@ class ModmailBot(commands.Bot):
         return new_name
 
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send("pong")
-
-
 def main():
     try:
         # noinspection PyUnresolvedReferences
