@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 import discord
 from discord.ext import commands
@@ -19,26 +20,31 @@ class TicketStatus(commands.Cog):
     def _thread_key(ctx):
         return str(ctx.thread.id)
 
-    def _base_channel_name(self, channel):
-        name = channel.name
-        changed = True
-        while changed:
-            changed = False
-            for prefix in self.STATUS_PREFIXES:
-                if name.startswith(prefix):
-                    name = name[len(prefix) :]
-                    changed = True
-                    break
-        name = re.sub(r"^-+", "", name)
-        return name or str(channel.id)
+    @staticmethod
+    def _slug(value):
+        """Return a clean Discord channel-name component with no emoji."""
+        value = unicodedata.normalize("NFKD", str(value)).encode("ascii", "ignore").decode("ascii")
+        value = re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+        return value or "user"
 
     async def _rename(self, ctx, status):
-        base = self._base_channel_name(ctx.channel)
+        recipient = ctx.thread.recipient
+        recipient_name = recipient.name if recipient is not None else str(ctx.thread.id)
+        recipient_slug = self._slug(recipient_name)
+
+        claimant = self._claimant(ctx)
+        claimant_slug = self._slug(claimant.name) if claimant is not None else None
+
         if status == "open":
-            new_name = base
+            new_name = recipient_slug
+        elif status == "claimed":
+            new_name = f"{claimant_slug}-{recipient_slug}" if claimant_slug else recipient_slug
+        elif claimant_slug:
+            new_name = f"{status}-{claimant_slug}-{recipient_slug}"
         else:
-            new_name = f"{status}-{base}"
-        new_name = new_name[:100]
+            new_name = f"{status}-{recipient_slug}"
+
+        new_name = new_name[:100].rstrip("-")
         if ctx.channel.name != new_name:
             await ctx.channel.edit(name=new_name)
 
@@ -121,7 +127,15 @@ class TicketStatus(commands.Cog):
             value="You will be pinged when the recipient sends a new message.",
             inline=False,
         )
-        await ctx.send(embed=embed)
+        await ctx.send(
+            content=ctx.author.mention,
+            embed=embed,
+            allowed_mentions=discord.AllowedMentions(
+                users=[ctx.author],
+                roles=False,
+                everyone=False,
+            ),
+        )
 
     @commands.command()
     @checks.has_permissions(PermissionLevel.SUPPORTER)
